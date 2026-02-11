@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>春节大富翁 3D - 马年新春版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a0a0a;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#fff}
+canvas{display:block}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:100}
+.overlay-bg{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7)}
+.card{position:relative;background:linear-gradient(135deg,#2a0a0a,#4a1515);border:3px solid #cc8800;border-radius:16px;padding:32px 40px;text-align:center;max-width:460px;box-shadow:0 0 40px rgba(204,136,0,0.3)}
+.card h1{font-size:36px;color:#ffcc00;text-shadow:0 0 20px rgba(255,200,0,0.5);margin-bottom:4px}
+.card h2{font-size:18px;color:#ff6644;margin-bottom:20px}
+.card p{color:#ddc;margin-bottom:16px;font-size:15px}
+.player-btns{display:flex;gap:12px;justify-content:center;margin-bottom:20px}
+.player-btns button{width:56px;height:56px;border-radius:50%;border:3px solid #cc8800;background:#3a1a1a;color:#ffcc00;font-size:22px;font-weight:bold;cursor:pointer;transition:all .2s}
+.player-btns button:hover,.player-btns button.active{background:#cc8800;color:#fff;transform:scale(1.1)}
+.start-btn{background:linear-gradient(135deg,#cc2222,#aa0000);color:#ffcc00;border:2px solid #ffcc00;padding:12px 48px;font-size:20px;border-radius:30px;cursor:pointer;font-weight:bold;transition:all .2s}
+.start-btn:hover{transform:scale(1.05);box-shadow:0 0 20px rgba(255,200,0,0.4)}
+.start-btn:disabled{opacity:0.4;cursor:default;transform:none}
+#hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;z-index:50}
+#playerBar{display:flex;gap:6px;padding:8px 10px;flex-wrap:wrap;pointer-events:auto}
+.pcard{flex:1;min-width:140px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,0.65);border:2px solid #555;font-size:13px;transition:all .3s}
+.pcard.active{border-color:#ffcc00;box-shadow:0 0 12px rgba(255,200,0,0.4)}
+.pcard.bankrupt{opacity:0.35;text-decoration:line-through}
+.pcard .pname{font-weight:bold;font-size:15px;margin-bottom:3px}
+.pcard .pmoney{color:#ffcc00;font-size:14px}
+.pcard .pprops{color:#aaa;font-size:11px;margin-top:2px}
+#actionPanel{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);text-align:center;z-index:50;pointer-events:auto}
+#turnLabel{color:#ffcc00;font-size:18px;font-weight:bold;margin-bottom:8px;text-shadow:0 0 10px rgba(255,200,0,0.5)}
+#rollBtn{background:linear-gradient(135deg,#cc2222,#991111);color:#ffcc00;border:2px solid #ffcc00;padding:12px 36px;font-size:20px;border-radius:25px;cursor:pointer;font-weight:bold;transition:all .2s;display:none}
+#rollBtn:hover{transform:scale(1.05);box-shadow:0 0 15px rgba(255,200,0,0.4)}
+#rollBtn:disabled{opacity:0.4;cursor:default;transform:none}
+#diceResult{color:#fff;font-size:28px;font-weight:bold;margin-top:6px;min-height:36px}
+#popup{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;z-index:200;pointer-events:auto}
+#popup .overlay-bg{pointer-events:auto}
+.popup-card{position:relative;background:linear-gradient(135deg,#2a0a0a,#4a1818);border:3px solid #cc8800;border-radius:14px;padding:24px 32px;text-align:center;max-width:380px;min-width:280px;z-index:1}
+.popup-card h3{color:#ffcc00;font-size:22px;margin-bottom:10px}
+.popup-card .pdesc{color:#eeddcc;font-size:15px;margin-bottom:16px;line-height:1.6}
+.popup-card .price-tag{color:#ffaa00;font-size:14px;margin-bottom:12px}
+.popup-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.popup-btns button{padding:8px 24px;border-radius:20px;border:2px solid #cc8800;font-size:15px;cursor:pointer;font-weight:bold;transition:all .2s}
+.btn-buy{background:#cc2222;color:#ffcc00}
+.btn-skip{background:#333;color:#ccc}
+.btn-ok{background:#cc8800;color:#fff}
+.popup-btns button:hover{transform:scale(1.05)}
+#gameover{display:none}
+#gameover .card h1{font-size:30px}
+#msgLog{position:fixed;bottom:80px;left:10px;z-index:50;pointer-events:none;max-width:300px}
+.log-msg{background:rgba(0,0,0,0.7);color:#ddd;padding:4px 10px;border-radius:6px;font-size:12px;margin-top:3px;animation:fadeLog 3s forwards}
+@keyframes fadeLog{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+</style>
+</head>
+<body>
+<div id="container"></div>
+
+<!-- 开始界面 -->
+<div id="setup" class="overlay">
+  <div class="overlay-bg"></div>
+  <div class="card">
+    <h1>🧧 春节大富翁</h1>
+    <h2>🐴 马年新春 3D 版 🐴</h2>
+    <p>选择玩家人数</p>
+    <div class="player-btns" id="playerBtns">
+      <button onclick="selectPlayers(2)">2</button>
+      <button onclick="selectPlayers(3)">3</button>
+      <button onclick="selectPlayers(4)">4</button>
+    </div>
+    <button class="start-btn" id="startBtn" onclick="startGame()" disabled>开始游戏</button>
+    <p style="margin-top:14px;font-size:12px;color:#997">🖱️ 拖拽旋转视角 | 滚轮缩放 | 点击掷骰子</p>
+  </div>
+</div>
+
+<!-- 游戏HUD -->
+<div id="hud" style="display:none">
+  <div id="playerBar"></div>
+</div>
+<div id="actionPanel" style="display:none">
+  <div id="turnLabel"></div>
+  <button id="rollBtn" onclick="onRollClick()">🎲 掷骰子</button>
+  <div id="diceResult"></div>
+</div>
+
+<!-- 事件弹窗 -->
+<div id="popup">
+  <div class="overlay-bg" onclick=""></div>
+  <div class="popup-card">
+    <h3 id="popTitle"></h3>
+    <div class="pdesc" id="popDesc"></div>
+    <div class="price-tag" id="popPrice"></div>
+    <div class="popup-btns" id="popBtns"></div>
+  </div>
+</div>
+
+<!-- 消息日志 -->
+<div id="msgLog"></div>
+
+<!-- 游戏结束 -->
+<div id="gameover" class="overlay">
+  <div class="overlay-bg"></div>
+  <div class="card" id="overCard"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================================
+//  春节大富翁 3D - 马年新春版
+// ============================================================
+
+// ---------- 游戏数据 ----------
+const TILES = [
+  // 底边 (0-5)
+  { name:'起点',    type:'start',    color:'#cc8800', icon:'🏠' },
+  { name:'年货铺',  type:'property', color:'#cc3333', icon:'🏪', price:200, rent:[30,90,250],   group:'red' },
+  { name:'命运',    type:'fortune',  color:'#9933cc', icon:'🔮' },
+  { name:'饺子馆',  type:'property', color:'#cc3333', icon:'🥟', price:280, rent:[45,120,300],  group:'red' },
+  { name:'红包',    type:'hongbao',  color:'#dd2222', icon:'🧧' },
+  { name:'春联铺',  type:'property', color:'#33aa33', icon:'🎋', price:320, rent:[55,140,350],  group:'green' },
+  // 右列 (6-11)
+  { name:'烟花台',  type:'firework', color:'#dd6600', icon:'🎆' },
+  { name:'糖葫芦',  type:'property', color:'#33aa33', icon:'🍡', price:350, rent:[60,150,380],  group:'green' },
+  { name:'命运',    type:'fortune',  color:'#9933cc', icon:'🔮' },
+  { name:'灯笼铺',  type:'property', color:'#3366cc', icon:'🏮', price:380, rent:[65,160,400],  group:'blue' },
+  { name:'红包',    type:'hongbao',  color:'#dd2222', icon:'🧧' },
+  { name:'团圆饭',  type:'property', color:'#3366cc', icon:'🍲', price:500, rent:[100,250,600], group:'blue' },
+  // 顶边 (12-17)
+  { name:'庙会',    type:'temple',   color:'#886622', icon:'⛩️' },
+  { name:'年画馆',  type:'property', color:'#dd7722', icon:'🎨', price:420, rent:[75,180,450],  group:'orange' },
+  { name:'命运',    type:'fortune',  color:'#9933cc', icon:'🔮' },
+  { name:'鞭炮坊',  type:'property', color:'#dd7722', icon:'🧨', price:400, rent:[70,170,430],  group:'orange' },
+  { name:'红包',    type:'hongbao',  color:'#dd2222', icon:'🧧' },
+  { name:'糖果铺',  type:'property', color:'#cc3333', icon:'🍬', price:300, rent:[50,130,330],  group:'red' },
+  // 左列 (18-23)
+  { name:'福卡',    type:'fucard',   color:'#cc2200', icon:'🎴' },
+  { name:'命运',    type:'fortune',  color:'#9933cc', icon:'🔮' },
+  { name:'对联摊',  type:'property', color:'#33aa33', icon:'📜', price:260, rent:[40,110,280],  group:'green' },
+  { name:'红包',    type:'hongbao',  color:'#dd2222', icon:'🧧' },
+  { name:'庙会',    type:'temple',   color:'#886622', icon:'⛩️' },
+  { name:'福卡',    type:'fucard',   color:'#cc2200', icon:'🎴' },
+];
+
+// 给每个格子添加运行时状态
+TILES.forEach(t => { t.owner = -1; t.level = 0; });
+
+const FORTUNE_CARDS = [
+  { text:'恭喜发财！获得 300 金 🎉', money:300 },
+  { text:'年兽来袭！损失 200 金 👹', money:-200 },
+  { text:'收到压岁钱！获得 500 金 💰', money:500 },
+  { text:'年货大采购，花费 250 金 🛒', money:-250 },
+  { text:'走亲访友，前进 3 步 🚶', move:3 },
+  { text:'大雪封路，后退 2 步 ❄️', move:-2 },
+  { text:'新年快乐！获得 200 金 🎊', money:200 },
+  { text:'吃坏肚子，医药费 150 金 😷', money:-150 },
+  { text:'中奖啦！获得 400 金 🎁', money:400 },
+  { text:'随份子钱，花费 300 金 💸', money:-300 },
+];
+
+const PLAYER_COLORS = [0xff3333, 0x3388ff, 0x33cc33, 0xffaa00];
+const PLAYER_COLOR_CSS = ['#ff3333','#3388ff','#33cc33','#ffaa00'];
+const PLAYER_NAMES = ['玩家一','玩家二','玩家三','玩家四'];
+const PLAYER_OFFSETS = [{x:-0.35,z:-0.35},{x:0.35,z:-0.35},{x:-0.35,z:0.35},{x:0.35,z:0.35}];
+
+// ---------- 音效 ----------
+let audioCtx;
+function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+function sfx(type){
+  if(!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  switch(type){
+    case 'roll': o.type='square'; o.frequency.setValueAtTime(200,t); o.frequency.exponentialRampToValueAtTime(600,t+0.15); o.frequency.exponentialRampToValueAtTime(200,t+0.3); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.start(t); o.stop(t+0.3); break;
+    case 'step': o.type='sine'; o.frequency.setValueAtTime(440,t); g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.08); o.start(t); o.stop(t+0.08); break;
+    case 'buy': o.type='sine'; o.frequency.setValueAtTime(523,t); o.frequency.setValueAtTime(659,t+0.08); o.frequency.setValueAtTime(784,t+0.16); g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.start(t); o.stop(t+0.3); break;
+    case 'pay': o.type='square'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.start(t); o.stop(t+0.2); break;
+    case 'firework': o.type='sine'; o.frequency.setValueAtTime(800,t); o.frequency.exponentialRampToValueAtTime(2000,t+0.15); o.frequency.exponentialRampToValueAtTime(100,t+0.5); g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5); o.start(t); o.stop(t+0.5); break;
+    case 'win': o.type='sine'; o.frequency.setValueAtTime(523,t); o.frequency.setValueAtTime(659,t+0.15); o.frequency.setValueAtTime(784,t+0.3); o.frequency.setValueAtTime(1047,t+0.45); g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.7); o.start(t); o.stop(t+0.7); break;
+  }
+}
+
+// ---------- 三维场景 ----------
+let scene, camera, renderer;
+let tilePositions = [];
+let tileMeshes = [];
+let playerPieces = [];
+let buildingGroups = []; // 每个格子的建筑组
+let dice1, dice2;
+let fireworkParticles = [];
+
+function initThree(){
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x1a0a0a, 0.012);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
+  camera.position.set(0, 18, 14);
+  camera.lookAt(0, 0, 0);
+
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  document.getElementById('container').appendChild(renderer.domElement);
+
+  // 灯光
+  const ambient = new THREE.AmbientLight(0xffeedd, 0.5);
+  scene.add(ambient);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight.position.set(8, 15, 8);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024,1024);
+  dirLight.shadow.camera.left = -15; dirLight.shadow.camera.right = 15;
+  dirLight.shadow.camera.top = 15; dirLight.shadow.camera.bottom = -15;
+  scene.add(dirLight);
+
+  // 暖色点光源 (模拟灯笼)
+  const warm1 = new THREE.PointLight(0xff6622, 0.8, 20);
+  warm1.position.set(-6, 4, 6);
+  scene.add(warm1);
+  const warm2 = new THREE.PointLight(0xff6622, 0.8, 20);
+  warm2.position.set(6, 4, -6);
+  scene.add(warm2);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// ---------- 简易轨道控制 ----------
+let orbitState = { theta: 0, phi: Math.PI/4, radius: 22, dragging:false, prevX:0, prevY:0 };
+function initControls(){
+  const el = renderer.domElement;
+  function updateCam(){
+    const s = orbitState;
+    camera.position.x = s.radius * Math.sin(s.phi) * Math.sin(s.theta);
+    camera.position.y = s.radius * Math.cos(s.phi);
+    camera.position.z = s.radius * Math.sin(s.phi) * Math.cos(s.theta);
+    camera.lookAt(0, 0, 0);
+  }
+  el.addEventListener('pointerdown', e => {
+    if(e.button===0){ orbitState.dragging=true; orbitState.prevX=e.clientX; orbitState.prevY=e.clientY; }
+  });
+  window.addEventListener('pointermove', e => {
+    if(!orbitState.dragging) return;
+    const dx=e.clientX-orbitState.prevX, dy=e.clientY-orbitState.prevY;
+    orbitState.theta -= dx*0.008;
+    orbitState.phi = Math.max(0.25, Math.min(1.45, orbitState.phi + dy*0.008));
+    orbitState.prevX=e.clientX; orbitState.prevY=e.clientY;
+    updateCam();
+  });
+  window.addEventListener('pointerup', () => orbitState.dragging=false);
+  el.addEventListener('wheel', e => {
+    orbitState.radius = Math.max(10, Math.min(35, orbitState.radius + e.deltaY*0.015));
+    updateCam(); e.preventDefault();
+  }, {passive:false});
+  updateCam();
+}
+
+// ---------- 棋盘创建 ----------
+function computeTilePositions(){
+  const positions = [];
+  const S = 2; // 间距
+  // 底边: x from -6 to 4, z=6 (6个格子)
+  for(let i=0;i<6;i++) positions.push(new THREE.Vector3(-6+i*S, 0, 6));
+  // 右列: x=6, z from 6 to -4 (6个格子)
+  for(let i=0;i<6;i++) positions.push(new THREE.Vector3(6, 0, 6-i*S));
+  // 顶边: x from 6 to -4, z=-6 (6个格子, 方向:右到左)
+  for(let i=0;i<6;i++) positions.push(new THREE.Vector3(6-i*S, 0, -6));
+  // 左列: x=-6, z from -6 to -2+S (6个格子, 不含底边角)
+  for(let i=0;i<6;i++) positions.push(new THREE.Vector3(-6, 0, -6+i*S));
+  return positions;
+}
+
+function createTileTexture(tile, idx){
+  const cv = document.createElement('canvas');
+  cv.width=256; cv.height=256;
+  const c = cv.getContext('2d');
+
+  // 背景
+  c.fillStyle = tile.color || '#333';
+  c.fillRect(0,0,256,256);
+
+  // 内边框金色
+  c.strokeStyle = '#ffcc00';
+  c.lineWidth = 6;
+  c.strokeRect(6,6,244,244);
+
+  // 暗纹
+  c.fillStyle = 'rgba(0,0,0,0.15)';
+  c.fillRect(0,200,256,56);
+
+  // 图标
+  c.font = '52px serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(tile.icon||'', 128, 75);
+
+  // 名称
+  c.fillStyle = '#fff';
+  c.font = 'bold 32px "Microsoft YaHei",sans-serif';
+  c.fillText(tile.name, 128, 145);
+
+  // 价格
+  if(tile.price){
+    c.fillStyle = '#ffdd66';
+    c.font = '24px "Microsoft YaHei",sans-serif';
+    c.fillText(tile.price+'金', 128, 225);
+  }
+
+  // 序号
+  c.fillStyle = 'rgba(255,255,255,0.3)';
+  c.font = '18px sans-serif';
+  c.textAlign = 'left';
+  c.fillText('#'+idx, 12, 244);
+
+  return new THREE.CanvasTexture(cv);
+}
+
+function createBoard(){
+  tilePositions = computeTilePositions();
+
+  // 地面
+  const groundGeo = new THREE.PlaneGeometry(40,40);
+  const groundMat = new THREE.MeshStandardMaterial({ color:0x1a1015, roughness:0.9 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = -0.1;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 棋盘底板
+  const boardGeo = new THREE.BoxGeometry(15.5, 0.2, 15.5);
+  const boardMat = new THREE.MeshStandardMaterial({ color:0x2a1510, roughness:0.7 });
+  const board = new THREE.Mesh(boardGeo, boardMat);
+  board.position.y = -0.05;
+  board.receiveShadow = true;
+  scene.add(board);
+
+  // 棋盘金边
+  const edgeMat = new THREE.MeshStandardMaterial({ color:0xcc8800, metalness:0.6, roughness:0.3 });
+  const edges = [
+    {s:[15.8,0.3,0.12], p:[0,0.05,7.75]},
+    {s:[15.8,0.3,0.12], p:[0,0.05,-7.75]},
+    {s:[0.12,0.3,15.8], p:[7.75,0.05,0]},
+    {s:[0.12,0.3,15.8], p:[-7.75,0.05,0]},
+  ];
+  edges.forEach(e => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...e.s), edgeMat);
+    m.position.set(...e.p);
+    scene.add(m);
+  });
+
+  // 格子
+  for(let i=0;i<24;i++){
+    const tile = TILES[i];
+    const pos = tilePositions[i];
+
+    // 计算朝向角度 (让纹理面向棋盘外侧)
+    let rotY = 0;
+    if(i<6) rotY = 0;            // 底边
+    else if(i<12) rotY = Math.PI/2;  // 右列
+    else if(i<18) rotY = Math.PI;    // 顶边
+    else rotY = -Math.PI/2;          // 左列
+
+    const tex = createTileTexture(tile, i);
+    const tileGeo = new THREE.BoxGeometry(1.8, 0.15, 1.8);
+    const materials = [
+      new THREE.MeshStandardMaterial({ color:parseInt(tile.color.replace('#',''),16), roughness:0.6 }),
+      new THREE.MeshStandardMaterial({ color:parseInt(tile.color.replace('#',''),16), roughness:0.6 }),
+      new THREE.MeshStandardMaterial({ map:tex, roughness:0.5 }), // 顶面
+      new THREE.MeshStandardMaterial({ color:0x1a1010 }),
+      new THREE.MeshStandardMaterial({ color:parseInt(tile.color.replace('#',''),16), roughness:0.6 }),
+      new THREE.MeshStandardMaterial({ color:parseInt(tile.color.replace('#',''),16), roughness:0.6 }),
+    ];
+    const mesh = new THREE.Mesh(tileGeo, materials);
+    mesh.position.set(pos.x, 0.08, pos.z);
+    mesh.rotation.y = rotY;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    tileMeshes.push(mesh);
+
+    // 建筑容器
+    const bg = new THREE.Group();
+    bg.position.set(pos.x, 0.15, pos.z);
+    scene.add(bg);
+    buildingGroups.push(bg);
+  }
+
+  // 中央装饰
+  createCenterDecor();
+}
+
+function createCenterDecor(){
+  // 中央平台
+  const platGeo = new THREE.CylinderGeometry(2.5, 2.8, 0.2, 32);
+  const platMat = new THREE.MeshStandardMaterial({ color:0x8B0000, roughness:0.5 });
+  const plat = new THREE.Mesh(platGeo, platMat);
+  plat.position.y = 0.1;
+  scene.add(plat);
+
+  // 中央文字纹理
+  const cv = document.createElement('canvas');
+  cv.width=512; cv.height=512;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#8B0000';
+  c.beginPath();
+  c.arc(256,256,256,0,Math.PI*2);
+  c.fill();
+  c.fillStyle = '#ffcc00';
+  c.font = 'bold 72px "Microsoft YaHei",sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText('春节', 256, 190);
+  c.fillText('大富翁', 256, 290);
+  c.font = '36px "Microsoft YaHei",sans-serif';
+  c.fillText('🐴 马年版 🐴', 256, 380);
+  const tex = new THREE.CanvasTexture(cv);
+  const discGeo = new THREE.CircleGeometry(2.3, 32);
+  const discMat = new THREE.MeshStandardMaterial({ map:tex, roughness:0.4 });
+  const disc = new THREE.Mesh(discGeo, discMat);
+  disc.rotation.x = -Math.PI/2;
+  disc.position.y = 0.22;
+  scene.add(disc);
+
+  // 四角灯笼
+  const lanternPositions = [[-7,0,7],[7,0,7],[7,0,-7],[-7,0,-7]];
+  lanternPositions.forEach(p => {
+    createLantern3D(p[0], 3, p[2]);
+  });
+}
+
+function createLantern3D(x, y, z){
+  const group = new THREE.Group();
+  // 灯笼体
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.4, 12, 10),
+    new THREE.MeshStandardMaterial({ color:0xdd2222, emissive:0xdd2222, emissiveIntensity:0.3 })
+  );
+  group.add(body);
+  // 上下盖
+  const cap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.3, 0.1, 12),
+    new THREE.MeshStandardMaterial({ color:0xcc8800, metalness:0.5 })
+  );
+  cap.position.y = 0.35;
+  group.add(cap);
+  const cap2 = cap.clone();
+  cap2.position.y = -0.35;
+  group.add(cap2);
+  // 穗子
+  const tassel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.06, 0.3, 6),
+    new THREE.MeshStandardMaterial({ color:0xffcc00 })
+  );
+  tassel.position.y = -0.55;
+  group.add(tassel);
+  // 杆
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, y, 6),
+    new THREE.MeshStandardMaterial({ color:0x886633 })
+  );
+  pole.position.y = y/2 + 0.4;
+  group.add(pole);
+  // 灯光
+  const light = new THREE.PointLight(0xff4422, 0.5, 8);
+  light.position.y = 0;
+  group.add(light);
+
+  group.position.set(x, y - 0.5, z);
+  scene.add(group);
+}
+
+// ---------- 骰子 ----------
+function createDiceFace(num){
+  const cv = document.createElement('canvas');
+  cv.width=128; cv.height=128;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff';
+  c.fillRect(0,0,128,128);
+  c.strokeStyle='#ddd'; c.lineWidth=4;
+  c.strokeRect(4,4,120,120);
+  c.fillStyle='#cc2222';
+  const r=10;
+  const pos={
+    1:[[64,64]],
+    2:[[36,36],[92,92]],
+    3:[[36,36],[64,64],[92,92]],
+    4:[[36,36],[92,36],[36,92],[92,92]],
+    5:[[36,36],[92,36],[64,64],[36,92],[92,92]],
+    6:[[36,36],[92,36],[36,64],[92,64],[36,92],[92,92]]
+  };
+  (pos[num]||[]).forEach(p => {
+    c.beginPath(); c.arc(p[0],p[1],r,0,Math.PI*2); c.fill();
+  });
+  return new THREE.CanvasTexture(cv);
+}
+
+function createDice(){
+  const geo = new THREE.BoxGeometry(0.7,0.7,0.7);
+  // Three.js r128 BoxGeometry face order: +X,-X,+Y,-Y,+Z,-Z
+  // Standard die: opposite faces sum to 7
+  // +X:3, -X:4, +Y:1, -Y:6, +Z:2, -Z:5
+  const mats = [
+    new THREE.MeshStandardMaterial({map:createDiceFace(3)}),
+    new THREE.MeshStandardMaterial({map:createDiceFace(4)}),
+    new THREE.MeshStandardMaterial({map:createDiceFace(1)}),
+    new THREE.MeshStandardMaterial({map:createDiceFace(6)}),
+    new THREE.MeshStandardMaterial({map:createDiceFace(2)}),
+    new THREE.MeshStandardMaterial({map:createDiceFace(5)}),
+  ];
+
+  dice1 = new THREE.Mesh(geo, mats);
+  dice1.position.set(-0.6, 0.55, 0);
+  dice1.castShadow = true;
+  scene.add(dice1);
+
+  dice2 = new THREE.Mesh(geo, mats.map(m=>m.clone()));
+  dice2.position.set(0.6, 0.55, 0);
+  dice2.castShadow = true;
+  scene.add(dice2);
+}
+
+// 骰子目标旋转 (让数字N朝上)
+const DICE_ROT = {
+  1: {x:0, z:0},
+  2: {x:Math.PI/2, z:0},
+  3: {x:0, z:-Math.PI/2},
+  4: {x:0, z:Math.PI/2},
+  5: {x:-Math.PI/2, z:0},
+  6: {x:Math.PI, z:0},
+};
+
+// ---------- 玩家棋子 ----------
+function createPlayerPieces(count){
+  playerPieces = [];
+  for(let i=0;i<count;i++){
+    const group = new THREE.Group();
+    // 底座
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.3, 0.15, 16),
+      new THREE.MeshStandardMaterial({ color:PLAYER_COLORS[i], metalness:0.3, roughness:0.5 })
+    );
+    group.add(base);
+    // 身体
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.22, 0.5, 16),
+      new THREE.MeshStandardMaterial({ color:PLAYER_COLORS[i], metalness:0.3, roughness:0.5 })
+    );
+    body.position.y = 0.35;
+    group.add(body);
+    // 头
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 12, 8),
+      new THREE.MeshStandardMaterial({ color:PLAYER_COLORS[i], metalness:0.3, roughness:0.5 })
+    );
+    head.position.y = 0.7;
+    group.add(head);
+
+    const off = PLAYER_OFFSETS[i];
+    const startPos = tilePositions[0];
+    group.position.set(startPos.x + off.x, 0.15, startPos.z + off.z);
+    group.castShadow = true;
+    scene.add(group);
+    playerPieces.push(group);
+  }
+}
+
+// ---------- 建筑 ----------
+function updateBuilding(tileIdx){
+  const tile = TILES[tileIdx];
+  const bg = buildingGroups[tileIdx];
+  // 清除旧建筑
+  while(bg.children.length) bg.remove(bg.children[0]);
+  if(tile.owner < 0 || tile.level === 0) return;
+
+  const lvl = tile.level;
+  const ownerColor = PLAYER_COLORS[tile.owner];
+  const h = 0.3 + lvl * 0.25;
+  const w = 0.4 + lvl * 0.1;
+
+  // 墙体
+  const walls = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, w),
+    new THREE.MeshStandardMaterial({ color:ownerColor, roughness:0.5 })
+  );
+  walls.position.y = h/2;
+  walls.castShadow = true;
+  bg.add(walls);
+
+  // 屋顶
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(w*0.75, h*0.4, 4),
+    new THREE.MeshStandardMaterial({ color:0x8B0000, roughness:0.5 })
+  );
+  roof.position.y = h + h*0.2;
+  roof.rotation.y = Math.PI/4;
+  roof.castShadow = true;
+  bg.add(roof);
+
+  if(lvl >= 3){
+    // 顶级建筑加灯笼
+    const lantern = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 8, 6),
+      new THREE.MeshStandardMaterial({ color:0xff2222, emissive:0xff4422, emissiveIntensity:0.5 })
+    );
+    lantern.position.y = h + h*0.5;
+    bg.add(lantern);
+  }
+
+  // 缩放动画
+  bg.scale.set(0.01,0.01,0.01);
+  addAnim((dt) => {
+    bg.scale.x = Math.min(1, bg.scale.x + dt*4);
+    bg.scale.y = Math.min(1, bg.scale.y + dt*4);
+    bg.scale.z = Math.min(1, bg.scale.z + dt*4);
+    return bg.scale.x >= 1;
+  });
+}
+
+// ---------- 烟花粒子 ----------
+function spawnFirework3D(x, y, z){
+  const count = 60;
+  const colors = [0xff2222, 0xffcc00, 0x44ff44, 0xff44ff, 0x4488ff, 0xff8800];
+  for(let i=0;i<count;i++){
+    const angle1 = Math.random()*Math.PI*2;
+    const angle2 = Math.random()*Math.PI - Math.PI/2;
+    const speed = 2 + Math.random()*4;
+    const geo = new THREE.SphereGeometry(0.06, 4, 4);
+    const mat = new THREE.MeshBasicMaterial({ color: colors[Math.floor(Math.random()*colors.length)] });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    const vel = {
+      x: Math.cos(angle1)*Math.cos(angle2)*speed,
+      y: Math.sin(angle2)*speed + 2,
+      z: Math.sin(angle1)*Math.cos(angle2)*speed
+    };
+    fireworkParticles.push({ mesh, vel, life:1.5+Math.random() });
+  }
+  sfx('firework');
+}
+
+function updateFireworks(dt){
+  for(let i=fireworkParticles.length-1;i>=0;i--){
+    const p = fireworkParticles[i];
+    p.mesh.position.x += p.vel.x * dt;
+    p.mesh.position.y += p.vel.y * dt;
+    p.mesh.position.z += p.vel.z * dt;
+    p.vel.y -= 5 * dt; // 重力
+    p.life -= dt;
+    p.mesh.material.opacity = Math.max(0, p.life/1.5);
+    p.mesh.material.transparent = true;
+    if(p.life <= 0){
+      scene.remove(p.mesh);
+      fireworkParticles.splice(i, 1);
+    }
+  }
+}
+
+// ---------- 动画系统 ----------
+const activeAnims = [];
+function addAnim(fn){ activeAnims.push(fn); }
+function updateAnims(dt){
+  for(let i=activeAnims.length-1;i>=0;i--){
+    if(activeAnims[i](dt)) activeAnims.splice(i,1);
+  }
+}
+
+// ---------- 游戏状态 ----------
+let players = [];
+let currentPI = 0; // 当前玩家索引
+let numPlayers = 0;
+let gamePhase = 'setup'; // setup, idle, rolling, moving, event, gameover
+let roundNum = 1;
+let doubleRent = false; // 命运卡翻倍效果
+
+function selectPlayers(n){
+  numPlayers = n;
+  document.querySelectorAll('#playerBtns button').forEach((b,i) => {
+    b.classList.toggle('active', i+2 === n);
+  });
+  document.getElementById('startBtn').disabled = false;
+}
+
+function startGame(){
+  initAudio();
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('actionPanel').style.display = 'block';
+
+  // 重置格子状态
+  TILES.forEach(t => { t.owner = -1; t.level = 0; });
+  buildingGroups.forEach(bg => { while(bg.children.length) bg.remove(bg.children[0]); });
+
+  // 创建玩家
+  players = [];
+  for(let i=0;i<numPlayers;i++){
+    players.push({ name:PLAYER_NAMES[i], money:2000, pos:0, props:[], bankrupt:false, colorIdx:i });
+  }
+
+  // 清除旧棋子
+  playerPieces.forEach(p => scene.remove(p));
+  createPlayerPieces(numPlayers);
+
+  currentPI = 0;
+  roundNum = 1;
+  gamePhase = 'idle';
+  updateHUD();
+  showTurn();
+}
+
+// ---------- UI更新 ----------
+function updateHUD(){
+  const bar = document.getElementById('playerBar');
+  bar.innerHTML = '';
+  players.forEach((p,i) => {
+    const propCount = TILES.filter(t => t.owner === i).length;
+    const totalAsset = p.money + TILES.filter(t=>t.owner===i).reduce((s,t)=>s+(t.price||0)*t.level,0);
+    const div = document.createElement('div');
+    div.className = 'pcard' + (i===currentPI?' active':'') + (p.bankrupt?' bankrupt':'');
+    div.style.borderColor = p.bankrupt ? '#555' : PLAYER_COLOR_CSS[i];
+    div.innerHTML = `
+      <div class="pname" style="color:${PLAYER_COLOR_CSS[i]}">${p.name}</div>
+      <div class="pmoney">💰 ${p.money} 金</div>
+      <div class="pprops">🏠 ${propCount}处房产 | 总资产 ${totalAsset}</div>
+    `;
+    bar.appendChild(div);
+  });
+}
+
+function showTurn(){
+  const p = players[currentPI];
+  document.getElementById('turnLabel').textContent = `🎯 ${p.name} 的回合 (第${roundNum}轮)`;
+  document.getElementById('turnLabel').style.color = PLAYER_COLOR_CSS[currentPI];
+  document.getElementById('rollBtn').style.display = 'inline-block';
+  document.getElementById('rollBtn').disabled = false;
+  document.getElementById('diceResult').textContent = '';
+}
+
+function logMsg(text){
+  const log = document.getElementById('msgLog');
+  const div = document.createElement('div');
+  div.className = 'log-msg';
+  div.textContent = text;
+  log.appendChild(div);
+  setTimeout(()=>{ if(div.parentNode) div.remove(); }, 3500);
+  // 最多保留5条
+  while(log.children.length > 5) log.removeChild(log.firstChild);
+}
+
+function showPopup(title, desc, priceTxt, buttons){
+  const popup = document.getElementById('popup');
+  document.getElementById('popTitle').textContent = title;
+  document.getElementById('popDesc').innerHTML = desc;
+  document.getElementById('popPrice').textContent = priceTxt||'';
+  const btnDiv = document.getElementById('popBtns');
+  btnDiv.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.textContent = b.text;
+    btn.className = b.cls || 'btn-ok';
+    btn.onclick = () => { popup.style.display='none'; b.fn(); };
+    btnDiv.appendChild(btn);
+  });
+  popup.style.display = 'flex';
+}
+
+function hidePopup(){
+  document.getElementById('popup').style.display = 'none';
+}
+
+// ---------- 骰子动画 ----------
+function onRollClick(){
+  if(gamePhase !== 'idle') return;
+  gamePhase = 'rolling';
+  document.getElementById('rollBtn').disabled = true;
+  sfx('roll');
+
+  const val1 = Math.floor(Math.random()*6)+1;
+  const val2 = Math.floor(Math.random()*6)+1;
+  const total = val1 + val2;
+
+  // 骰子旋转动画
+  const duration = 1.0;
+  let elapsed = 0;
+  const startRot1 = {x:dice1.rotation.x, y:dice1.rotation.y, z:dice1.rotation.z};
+  const startRot2 = {x:dice2.rotation.x, y:dice2.rotation.y, z:dice2.rotation.z};
+  const target1 = DICE_ROT[val1];
+  const target2 = DICE_ROT[val2];
+  // 加上额外的多圈旋转
+  const endRot1 = {x: target1.x + Math.PI*4, z: target1.z + Math.PI*2};
+  const endRot2 = {x: target2.x + Math.PI*4, z: target2.z - Math.PI*2};
+
+  const startY1 = dice1.position.y;
+  const startY2 = dice2.position.y;
+
+  addAnim((dt) => {
+    elapsed += dt;
+    const t = Math.min(1, elapsed/duration);
+    const ease = 1 - Math.pow(1-t, 3); // easeOutCubic
+
+    dice1.rotation.x = startRot1.x + (endRot1.x - startRot1.x)*ease;
+    dice1.rotation.z = startRot1.z + (endRot1.z - startRot1.z)*ease;
+    dice1.position.y = startY1 + Math.sin(t*Math.PI)*2;
+
+    dice2.rotation.x = startRot2.x + (endRot2.x - startRot2.x)*ease;
+    dice2.rotation.z = startRot2.z + (endRot2.z - startRot2.z)*ease;
+    dice2.position.y = startY2 + Math.sin(t*Math.PI)*2;
+
+    if(t >= 1){
+      dice1.position.y = 0.55;
+      dice2.position.y = 0.55;
+      document.getElementById('diceResult').textContent = `🎲 ${val1} + ${val2} = ${total}`;
+      setTimeout(() => movePlayer(currentPI, total), 400);
+      return true;
+    }
+    return false;
+  });
+}
+
+// ---------- 玩家移动 ----------
+function movePlayer(pi, steps){
+  gamePhase = 'moving';
+  const player = players[pi];
+  let remaining = steps;
+
+  function doStep(){
+    if(remaining <= 0){
+      // 移动完成，触发事件
+      gamePhase = 'event';
+      handleTileEvent(pi);
+      return;
+    }
+    remaining--;
+    const from = player.pos;
+    const to = (from + 1) % 24;
+    player.pos = to;
+
+    // 经过起点
+    if(to === 0 && from !== 0){
+      player.money += 200;
+      logMsg(`${player.name} 经过起点，获得 200 金！`);
+      updateHUD();
+    }
+
+    // 动画：从from跳到to
+    const piece = playerPieces[pi];
+    const off = PLAYER_OFFSETS[pi];
+    const startP = tilePositions[from].clone();
+    startP.x += off.x; startP.z += off.z;
+    const endP = tilePositions[to].clone();
+    endP.x += off.x; endP.z += off.z;
+
+    const dur = 0.2;
+    let el = 0;
+    sfx('step');
+    addAnim((dt) => {
+      el += dt;
+      const t = Math.min(1, el/dur);
+      const ease = t < 0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+      piece.position.x = startP.x + (endP.x-startP.x)*ease;
+      piece.position.z = startP.z + (endP.z-startP.z)*ease;
+      piece.position.y = 0.15 + Math.sin(t*Math.PI)*0.6;
+      if(t >= 1){
+        piece.position.y = 0.15;
+        setTimeout(doStep, 80);
+        return true;
+      }
+      return false;
+    });
+  }
+  doStep();
+}
+
+// ---------- 格子事件 ----------
+function handleTileEvent(pi){
+  const player = players[pi];
+  const tile = TILES[player.pos];
+  const tileIdx = player.pos;
+
+  switch(tile.type){
+    case 'start':
+      showPopup('🏠 起点', '回到起点休息一下~', '', [
+        { text:'继续', cls:'btn-ok', fn:()=>nextTurn() }
+      ]);
+      break;
+
+    case 'property':
+      handleProperty(pi, tileIdx);
+      break;
+
+    case 'fortune':
+      handleFortune(pi);
+      break;
+
+    case 'hongbao':
+      handleHongbao(pi);
+      break;
+
+    case 'firework':
+      handleFirework(pi);
+      break;
+
+    case 'temple':
+      handleTemple(pi);
+      break;
+
+    case 'fucard':
+      handleFucard(pi);
+      break;
+
+    default:
+      nextTurn();
+  }
+}
+
+function handleProperty(pi, tileIdx){
+  const player = players[pi];
+  const tile = TILES[tileIdx];
+
+  if(tile.owner < 0){
+    // 无主 → 可购买
+    if(player.money >= tile.price){
+      showPopup(
+        `${tile.icon} ${tile.name}`,
+        `这块地还没有主人<br>购买后可以收取过路费`,
+        `价格: ${tile.price} 金 | 基础租金: ${tile.rent[0]} 金`,
+        [
+          { text:`💰 购买 (${tile.price}金)`, cls:'btn-buy', fn:()=>buyProperty(pi, tileIdx) },
+          { text:'跳过', cls:'btn-skip', fn:()=>nextTurn() }
+        ]
+      );
+    } else {
+      showPopup(`${tile.icon} ${tile.name}`, '你的金币不够购买这块地', `价格: ${tile.price} 金`, [
+        { text:'好吧', cls:'btn-ok', fn:()=>nextTurn() }
+      ]);
+    }
+  } else if(tile.owner === pi){
+    // 自己的地 → 可升级
+    if(tile.level < 3){
+      const upgradeCost = Math.floor(tile.price * 0.5);
+      if(player.money >= upgradeCost){
+        showPopup(
+          `${tile.icon} ${tile.name} (Lv.${tile.level})`,
+          `这是你的地产！升级后租金更高<br>当前租金: ${tile.rent[tile.level-1]} 金<br>升级后租金: ${tile.rent[tile.level]} 金`,
+          `升级费用: ${upgradeCost} 金`,
+          [
+            { text:`⬆️ 升级 (${upgradeCost}金)`, cls:'btn-buy', fn:()=>upgradeProperty(pi, tileIdx) },
+            { text:'跳过', cls:'btn-skip', fn:()=>nextTurn() }
+          ]
+        );
+      } else {
+        showPopup(`${tile.icon} ${tile.name}`, '金币不足以升级', '', [
+          { text:'继续', cls:'btn-ok', fn:()=>nextTurn() }
+        ]);
+      }
+    } else {
+      showPopup(`${tile.icon} ${tile.name} (MAX)`, '已经是最高等级了！', '', [
+        { text:'继续', cls:'btn-ok', fn:()=>nextTurn() }
+      ]);
+    }
+  } else {
+    // 别人的地 → 交租
+    const owner = players[tile.owner];
+    if(owner.bankrupt){ nextTurn(); return; }
+    let rentAmount = tile.rent[tile.level - 1] || tile.rent[0];
+    if(doubleRent && tile.owner !== pi){
+      // 暂不用
+    }
+    payRent(pi, tile.owner, rentAmount, tileIdx);
+  }
+}
+
+function buyProperty(pi, tileIdx){
+  const player = players[pi];
+  const tile = TILES[tileIdx];
+  player.money -= tile.price;
+  tile.owner = pi;
+  tile.level = 1;
+  player.props.push(tileIdx);
+  sfx('buy');
+  logMsg(`${player.name} 购买了 ${tile.name}！`);
+  updateBuilding(tileIdx);
+  updateHUD();
+  nextTurn();
+}
+
+function upgradeProperty(pi, tileIdx){
+  const player = players[pi];
+  const tile = TILES[tileIdx];
+  const cost = Math.floor(tile.price * 0.5);
+  player.money -= cost;
+  tile.level++;
+  sfx('buy');
+  logMsg(`${player.name} 将 ${tile.name} 升级到 Lv.${tile.level}！`);
+  updateBuilding(tileIdx);
+  updateHUD();
+  nextTurn();
+}
+
+function payRent(pi, ownerIdx, amount, tileIdx){
+  const player = players[pi];
+  const owner = players[ownerIdx];
+  const tile = TILES[tileIdx];
+  player.money -= amount;
+  owner.money += amount;
+  sfx('pay');
+  logMsg(`${player.name} 向 ${owner.name} 支付了 ${amount} 金租金`);
+
+  showPopup(
+    `💸 交租金`,
+    `这是 <b style="color:${PLAYER_COLOR_CSS[ownerIdx]}">${owner.name}</b> 的地盘<br>
+     ${tile.icon} ${tile.name} (Lv.${tile.level})<br>
+     需支付 <b>${amount} 金</b> 租金`,
+    '',
+    [{ text:'😢 支付', cls:'btn-ok', fn:()=>{
+      updateHUD();
+      if(player.money < 0) handleBankrupt(pi);
+      else nextTurn();
+    }}]
+  );
+}
+
+function handleFortune(pi){
+  const card = FORTUNE_CARDS[Math.floor(Math.random()*FORTUNE_CARDS.length)];
+  const player = players[pi];
+
+  showPopup('🔮 命运卡', card.text, '', [
+    { text:'确定', cls:'btn-ok', fn:()=>{
+      if(card.money !== undefined){
+        player.money += card.money;
+        logMsg(`${player.name}: ${card.text}`);
+        updateHUD();
+        if(player.money < 0) handleBankrupt(pi);
+        else nextTurn();
+      } else if(card.move !== undefined){
+        logMsg(`${player.name}: ${card.text}`);
+        const newPos = ((player.pos + card.move) % 24 + 24) % 24;
+        const steps = card.move > 0 ? card.move : 24 + card.move;
+        movePlayer(pi, steps);
+      } else {
+        nextTurn();
+      }
+    }}
+  ]);
+}
+
+function handleHongbao(pi){
+  const amount = Math.floor(Math.random()*5+1) * 50; // 50-250
+  const player = players[pi];
+  player.money += amount;
+  sfx('buy');
+  logMsg(`${player.name} 获得红包 ${amount} 金！`);
+  showPopup('🧧 红包', `恭喜！获得 <b>${amount} 金</b>`, '', [
+    { text:'收下🎉', cls:'btn-buy', fn:()=>{ updateHUD(); nextTurn(); } }
+  ]);
+}
+
+function handleFirework(pi){
+  // 放烟花 + 获得少量金币
+  const player = players[pi];
+  player.money += 80;
+  logMsg(`${player.name} 欣赏烟花，获得 80 金`);
+  // 在棋盘上放烟花
+  const pos = tilePositions[player.pos];
+  spawnFirework3D(pos.x, 3, pos.z);
+  setTimeout(()=> spawnFirework3D(pos.x+2, 4, pos.z-1), 300);
+  setTimeout(()=> spawnFirework3D(pos.x-1, 3.5, pos.z+2), 600);
+
+  showPopup('🎆 烟花表演', '绚丽的烟花在夜空绽放！<br>获得 <b>80 金</b>', '', [
+    { text:'🎆 好美！', cls:'btn-ok', fn:()=>{ updateHUD(); nextTurn(); } }
+  ]);
+}
+
+function handleTemple(pi){
+  // 庙会：随机事件
+  const events = [
+    { text:'在庙会上套圈套中大奖！获得 200 金', money:200 },
+    { text:'庙会小吃吃太多，花费 100 金', money:-100 },
+    { text:'逛庙会买了纪念品，花费 150 金', money:-150 },
+    { text:'庙会抽奖中了头奖！获得 350 金', money:350 },
+    { text:'在庙会看了精彩的舞龙表演，心情大好！获得 120 金', money:120 },
+  ];
+  const ev = events[Math.floor(Math.random()*events.length)];
+  const player = players[pi];
+  player.money += ev.money;
+  logMsg(`${player.name}: ${ev.text}`);
+  showPopup('⛩️ 逛庙会', ev.text, '', [
+    { text:'继续', cls:'btn-ok', fn:()=>{
+      updateHUD();
+      if(player.money < 0) handleBankrupt(pi);
+      else nextTurn();
+    }}
+  ]);
+}
+
+function handleFucard(pi){
+  const player = players[pi];
+  // 福卡效果：随机获得一个好运
+  const effects = [
+    { text:'捡到"福"字！所有房产租金下回合翻倍！获得 100 金', money:100 },
+    { text:'福气满满！获得 300 金', money:300 },
+    { text:'福到了！回到起点并获得 200 金', money:200, gotoStart:true },
+  ];
+  const ef = effects[Math.floor(Math.random()*effects.length)];
+  player.money += ef.money;
+  logMsg(`${player.name}: ${ef.text}`);
+
+  showPopup('🎴 福卡', ef.text, '', [
+    { text:'好运来！', cls:'btn-buy', fn:()=>{
+      if(ef.gotoStart){
+        player.pos = 0;
+        const piece = playerPieces[pi];
+        const off = PLAYER_OFFSETS[pi];
+        const startP = tilePositions[0];
+        piece.position.set(startP.x+off.x, 0.15, startP.z+off.z);
+      }
+      updateHUD();
+      nextTurn();
+    }}
+  ]);
+}
+
+function handleBankrupt(pi){
+  const player = players[pi];
+  player.bankrupt = true;
+  logMsg(`💀 ${player.name} 破产了！`);
+
+  // 释放所有房产
+  TILES.forEach((t,i) => {
+    if(t.owner === pi){
+      t.owner = -1;
+      t.level = 0;
+      updateBuilding(i);
+    }
+  });
+
+  // 隐藏棋子
+  playerPieces[pi].visible = false;
+
+  updateHUD();
+
+  // 检查游戏是否结束
+  const alive = players.filter(p => !p.bankrupt);
+  if(alive.length <= 1){
+    gameOver(alive[0]);
+  } else {
+    showPopup('💀 破产', `${player.name} 已经破产！`, '', [
+      { text:'继续游戏', cls:'btn-ok', fn:()=>nextTurn() }
+    ]);
+  }
+}
+
+function nextTurn(){
+  hidePopup();
+  // 找下一个未破产的玩家
+  let next = (currentPI + 1) % numPlayers;
+  let attempts = 0;
+  while(players[next].bankrupt && attempts < numPlayers){
+    next = (next + 1) % numPlayers;
+    attempts++;
+  }
+  if(next <= currentPI) roundNum++;
+  currentPI = next;
+
+  // 检查是否超过30轮 → 强制结束
+  if(roundNum > 30){
+    const richest = players.filter(p=>!p.bankrupt).sort((a,b)=>b.money-a.money)[0];
+    gameOver(richest);
+    return;
+  }
+
+  gamePhase = 'idle';
+  updateHUD();
+  showTurn();
+}
+
+function gameOver(winner){
+  gamePhase = 'gameover';
+  sfx('win');
+
+  // 放烟花庆祝
+  for(let i=0;i<5;i++){
+    setTimeout(()=>{
+      spawnFirework3D(
+        (Math.random()-0.5)*12,
+        4+Math.random()*3,
+        (Math.random()-0.5)*12
+      );
+    }, i*400);
+  }
+
+  // 排行榜
+  const rankings = players
+    .map((p,i)=>({...p, idx:i}))
+    .sort((a,b)=>{
+      if(a.bankrupt && !b.bankrupt) return 1;
+      if(!a.bankrupt && b.bankrupt) return -1;
+      const assetA = a.money + TILES.filter(t=>t.owner===a.idx).reduce((s,t)=>s+(t.price||0)*t.level,0);
+      const assetB = b.money + TILES.filter(t=>t.owner===b.idx).reduce((s,t)=>s+(t.price||0)*t.level,0);
+      return assetB - assetA;
+    });
+
+  let rankHTML = '<div style="text-align:left;margin:16px 0">';
+  rankings.forEach((p,i) => {
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ';
+    const asset = p.money + TILES.filter(t=>t.owner===p.idx).reduce((s,t)=>s+(t.price||0)*t.level,0);
+    rankHTML += `<div style="padding:6px 0;color:${PLAYER_COLOR_CSS[p.idx]};font-size:16px;${p.bankrupt?'text-decoration:line-through;opacity:0.5':''}">
+      ${medal} ${p.name}: ${p.money}金 (总资产${asset}) ${p.bankrupt?'(破产)':''}
+    </div>`;
+  });
+  rankHTML += '</div>';
+
+  const overCard = document.getElementById('overCard');
+  overCard.innerHTML = `
+    <h1>🎊 游戏结束 🎊</h1>
+    <h2 style="color:${PLAYER_COLOR_CSS[winner.colorIdx]};font-size:24px;margin:8px 0">
+      🏆 ${winner.name} 获胜！
+    </h2>
+    <p>经过 ${roundNum} 轮激烈角逐</p>
+    ${rankHTML}
+    <p style="color:#ffcc00;font-size:18px">🐴 马到成功，恭贺新春！🐴</p>
+    <button class="start-btn" onclick="location.reload()" style="margin-top:12px">🔄 再来一局</button>
+  `;
+  document.getElementById('gameover').style.display = 'flex';
+  document.getElementById('actionPanel').style.display = 'none';
+}
+
+// ---------- 主循环 ----------
+let lastTime = 0;
+function animate(timestamp){
+  const dt = Math.min((timestamp - lastTime)/1000, 0.1);
+  lastTime = timestamp;
+
+  updateAnims(dt);
+  updateFireworks(dt);
+
+  // 中央装饰缓慢旋转
+  // (disc在createCenterDecor中创建，此处简单用时间驱动灯笼光闪烁)
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+// ---------- 初始化 ----------
+function init(){
+  initThree();
+  createBoard();
+  createDice();
+  initControls();
+  requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>
